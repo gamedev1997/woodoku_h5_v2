@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Head Swipe Car Racing (Browser)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #32CD32; }
+        canvas { display: block; margin: auto; background: #32CD32; }
+        video { display: none; }
+    </style>
+    <!-- MediaPipe FaceMesh -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+</head>
+<body>
+
+<canvas id="gameCanvas" width="800" height="600"></canvas>
+<video id="video" width="640" height="480" autoplay muted playsinline></video>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Car properties
+const car = { x: 375, y: 470, width: 50, height: 100, color: 'red' };
+
+// Draw functions
+function drawCar() {
+    ctx.fillStyle = car.color;
+    ctx.fillRect(car.x, car.y, car.width, car.height);
+}
+
+function drawTrack() {
+    ctx.fillStyle = '#32CD32';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// Setup FaceMesh
+const videoElement = document.getElementById('video');
+const faceMesh = new FaceMesh({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+});
+
+faceMesh.setOptions({
+    maxNumFaces: 1,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+});
+
+faceMesh.onResults(onResults);
+
+// Camera
+const camera = new Camera(videoElement, {
+    onFrame: async () => {
+        await faceMesh.send({ image: videoElement });
+    },
+    width: 640,
+    height: 480
+});
+camera.start();
+
+function onResults(results) {
+    drawTrack();
+    drawCar();
+
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const nose = results.multiFaceLandmarks[0][1];
+        const noseX = nose.x * canvas.width;
+
+        // Move car based on nose position
+        if (noseX < 300) car.x -= 15;
+        else if (noseX > 500) car.x += 15;
+
+        // Keep car inside canvas
+        car.x = Math.max(0, Math.min(car.x, canvas.width - car.width));
+    }
+
+    requestAnimationFrame(() => onResults(results));
+}
+
+// Game loop start
+drawTrack();
+drawCar();
+</script>
+
+</body>
+</html>
